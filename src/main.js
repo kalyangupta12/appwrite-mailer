@@ -3,6 +3,11 @@ const nodemailer = require('nodemailer');
 
 module.exports = async function (req, res) {
     try {
+        if (!req || !res) {
+            console.error("Request or response object is undefined.");
+            return;
+        }
+
         // Verify payload
         if (!req.payload) {
             return res.status(400).json({
@@ -39,7 +44,6 @@ module.exports = async function (req, res) {
             .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID || '')
             .setKey(process.env.APPWRITE_API_KEY || '');
 
-        // Ensure Appwrite credentials are available
         if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_FUNCTION_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
             return res.status(500).json({
                 success: false,
@@ -59,14 +63,12 @@ module.exports = async function (req, res) {
             service: 'gmail',
             auth: {
                 user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_APP_PASSWORD // Use App Password for Gmail
+                pass: process.env.EMAIL_APP_PASSWORD
             }
         });
 
-        // Log the received data (for debugging)
         console.log('Sending to emails:', emails);
 
-        // Send emails to all recipients
         const emailPromises = emails.map(email => {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
@@ -84,11 +86,10 @@ module.exports = async function (req, res) {
                 `
             };
 
-            // Send email and handle errors
             return transporter.sendMail(mailOptions)
                 .catch(error => {
                     console.error(`Failed to send email to ${email}:`, error);
-                    return null; // Continue with other emails
+                    return null;
                 });
         });
 
@@ -101,10 +102,14 @@ module.exports = async function (req, res) {
     } catch (error) {
         console.error('Error sending invitations:', error);
 
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to send invitations',
-            error: error.message
-        });
+        if (res && res.status) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to send invitations',
+                error: error.message
+            });
+        } else {
+            console.error("Response object or status is unavailable.");
+        }
     }
 };
