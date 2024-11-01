@@ -6,7 +6,7 @@ module.exports = async function (context) {
     try {
         // Log incoming request
         console.log('Function started, checking payload...');
-        
+
         if (!context.req?.payload) {
             console.log('No payload provided');
             return context.res.json({
@@ -70,7 +70,7 @@ module.exports = async function (context) {
             .setKey(process.env.APPWRITE_API_KEY);
 
         console.log('Creating email transporter...');
-        
+
         // Configure email transporter with verbose logging
         const transporter = nodemailer.createTransport({
             service: 'gmail',
@@ -102,7 +102,7 @@ module.exports = async function (context) {
             emails.map(async (email) => {
                 try {
                     console.log(`Attempting to send email to: ${email}`);
-                    
+
                     const mailOptions = {
                         from: process.env.EMAIL_USER,
                         to: email,
@@ -124,7 +124,7 @@ module.exports = async function (context) {
                     return { email, success: true, messageId: info.messageId };
                 } catch (error) {
                     console.error(`Failed to send email to ${email}:`, error);
-                    return { email, success: false, error: error.message };
+ return { email, success: false, error: error.message };
                 }
             })
         );
@@ -152,8 +152,8 @@ module.exports = async function (context) {
         console.error('Unexpected error in email invitation function:', error);
         return context.res.json({
             success: false,
-            message: 'Unexpected error: ' + error.message,
-            error: error.stack
+            message: 'Unexpected error occurred',
+            error: error.message || 'No error message available'
         });
     }
 };
