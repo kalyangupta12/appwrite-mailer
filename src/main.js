@@ -5,10 +5,10 @@ const nodemailer = require('nodemailer');
 module.exports = async function (context) {
     try {
         // Log incoming request
-        console.log('Function started, checking payload...');
+        context.log('Function started, checking payload...');
 
         if (!context.req?.payload) {
-            console.log('No payload provided');
+            context.log('No payload provided');
             return context.res.json({
                 success: false,
                 message: 'No payload provided'
@@ -19,9 +19,9 @@ module.exports = async function (context) {
         let payload;
         try {
             payload = JSON.parse(context.req.payload);
-            console.log('Parsed payload:', payload);
+            context.log('Parsed payload:', payload);
         } catch (error) {
-            console.error('JSON parse error:', error);
+            context.error('JSON parse error:', error);
             return context.res.json({
                 success: false,
                 message: 'Invalid JSON in payload'
@@ -32,7 +32,7 @@ module.exports = async function (context) {
 
         // Validate required fields
         if (!Array.isArray(emails) || emails.length === 0 || !testLink || !testCode) {
-            console.log('Validation failed:', { emails, testLink, testCode });
+            context.log('Validation failed:', { emails, testLink, testCode });
             return context.res.json({
                 success: false,
                 message: 'Missing required fields: emails (must be a non-empty array), testLink, or testCode'
@@ -40,12 +40,12 @@ module.exports = async function (context) {
         }
 
         // Log environment variables (without sensitive data)
-        console.log('Checking environment variables...');
-        console.log('APPWRITE_ENDPOINT exists:', !!process.env.APPWRITE_ENDPOINT);
-        console.log('APPWRITE_FUNCTION_PROJECT_ID exists:', !!process.env.APPWRITE_FUNCTION_PROJECT_ID);
-        console.log('APPWRITE_API_KEY exists:', !!process.env.APPWRITE_API_KEY);
-        console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
-        console.log('EMAIL_APP_PASSWORD exists:', !!process.env.EMAIL_APP_PASSWORD);
+        context.log('Checking environment variables...');
+        context.log('APPWRITE_ENDPOINT exists:', !!process.env.APPWRITE_ENDPOINT);
+        context.log('APPWRITE_FUNCTION_PROJECT_ID exists:', !!process.env.APPWRITE_FUNCTION_PROJECT_ID);
+        context.log('APPWRITE_API_KEY exists:', !!process.env.APPWRITE_API_KEY);
+        context.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
+        context.log('EMAIL_APP_PASSWORD exists:', !!process.env.EMAIL_APP_PASSWORD);
 
         // Validate environment variables
         if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_FUNCTION_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
@@ -69,7 +69,7 @@ module.exports = async function (context) {
             .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
             .setKey(process.env.APPWRITE_API_KEY);
 
-        console.log('Creating email transporter...');
+        context.log('Creating email transporter...');
 
         // Configure email transporter with verbose logging
         const transporter = nodemailer.createTransport({
@@ -84,24 +84,24 @@ module.exports = async function (context) {
 
         // Verify transporter configuration
         try {
-            console.log('Verifying email transporter...');
+            context.log('Verifying email transporter...');
             await transporter.verify();
-            console.log('Transporter verification successful');
+            context.log('Transporter verification successful');
         } catch (error) {
-            console.error('Transporter verification failed:', error);
+            context.error('Transporter verification failed:', error);
             return context.res.json({
                 success: false,
                 message: 'Email configuration verification failed: ' + error.message
             });
         }
 
-        console.log('Starting to send emails to:', emails);
+        context.log('Starting to send emails to:', emails);
 
         // Send emails with detailed error handling
         const emailResults = await Promise.all(
             emails.map(async (email) => {
                 try {
-                    console.log(`Attempting to send email to: ${email}`);
+                    context.log(`Attempting to send email to: ${email}`);
 
                     const mailOptions = {
                         from: process.env.EMAIL_USER,
@@ -110,7 +110,7 @@ module.exports = async function (context) {
                         html: `
                             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                                 <h2>You've Been Invited to Participate in a Test</h2>
-                                <p>You can access the test using the following details:</p>
+                                <p>You can access the test using the following details:</ p>
                                 <p><strong>Test Link:</strong> <a href="${testLink}">${testLink}</a></p>
                                 <p><strong>Test Code:</strong> ${testCode}</p>
                                 <p>Please click the link above to begin the test.</p>
@@ -120,11 +120,11 @@ module.exports = async function (context) {
                     };
 
                     const info = await transporter.sendMail(mailOptions);
-                    console.log(`Email sent successfully to ${email}:`, info.messageId);
+                    context.log(`Email sent successfully to ${email}:`, info.messageId);
                     return { email, success: true, messageId: info.messageId };
                 } catch (error) {
-                    console.error(`Failed to send email to ${email}:`, error);
- return { email, success: false, error: error.message };
+                    context.error(`Failed to send email to ${email}:`, error);
+                    return { email, success: false, error: error.message };
                 }
             })
         );
@@ -133,7 +133,7 @@ module.exports = async function (context) {
         const successfulEmails = emailResults.filter(result => result.success);
         const failedEmails = emailResults.filter(result => !result.success);
 
-        console.log('Email sending completed:', {
+        context.log('Email sending completed:', {
             successful: successfulEmails.length,
             failed: failedEmails.length
         });
@@ -149,7 +149,7 @@ module.exports = async function (context) {
         });
 
     } catch (error) {
-        console.error('Unexpected error in email invitation function:', error);
+        context.error('Unexpected error in email invitation function:', error);
         return context.res.json({
             success: false,
             message: 'Unexpected error occurred',
