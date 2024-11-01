@@ -64,7 +64,7 @@ module.exports = async function (req, res) {
 
         await Promise.all(emailPromises);
 
-        return res.json({
+        return res.status(200).json({
             success: true,
             message: 'Invitations sent successfully'
         });
