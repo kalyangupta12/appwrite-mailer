@@ -6,7 +6,7 @@ module.exports = async function (req, res) {
     try {
         if (!req || !res) {
             console.error("Request or response object is undefined.");
-            return;
+            return res ? res.status(500).send() : null;  // Return empty if no response is expected
         }
 
         // Verify payload
@@ -113,4 +113,6 @@ module.exports = async function (req, res) {
             console.error("Response object or status is unavailable.");
         }
     }
+
+    return res.send();  // Return an empty response if no response is expected
 };
