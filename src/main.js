@@ -5,10 +5,7 @@ module.exports = async function (req, res) {
     try {
         if (!req || !res) {
             console.error("Request or response object is undefined.");
-            return res.status(500).json({
-                success: false,
-                message: 'Server error'
-            });
+            return;
         }
 
         // Verify payload
@@ -92,7 +89,7 @@ module.exports = async function (req, res) {
             return transporter.sendMail(mailOptions)
                 .catch(error => {
                     console.error(`Failed to send email to ${email}:`, error);
-                    return null; // Explicitly returning null on failure
+                    return null;
                 });
         });
 
@@ -113,10 +110,6 @@ module.exports = async function (req, res) {
             });
         } else {
             console.error("Response object or status is unavailable.");
-            return res.status(500).json({
-                success: false,
-                message: 'Server error'
-            });
         }
     }
 };
