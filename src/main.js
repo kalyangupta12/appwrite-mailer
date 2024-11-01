@@ -2,42 +2,45 @@ require('dotenv').config();
 const sdk = require('node-appwrite');
 const nodemailer = require('nodemailer');
 
-module.exports = async function (req, res) {
-    // Initialize response object if not provided
-    if (!res) {
-        res = {
-            json: () => null,
-            send: () => null,
-            empty: () => null
-        };
-    }
-
+module.exports = async function (context) {
     try {
         // Verify payload
-        if (!req || !req.payload) {
-            throw new Error('No payload provided');
+        if (!context.req?.payload) {
+            return context.res.json({
+                success: false,
+                message: 'No payload provided'
+            });
         }
 
         // Parse the request data
         let payload;
         try {
-            payload = JSON.parse(req.payload);
+            payload = JSON.parse(context.req.payload);
         } catch (error) {
-            throw new Error('Invalid JSON in payload');
+            return context.res.json({
+                success: false,
+                message: 'Invalid JSON in payload'
+            });
         }
 
         const { emails, testLink, testCode } = payload;
 
         // Validate required fields
         if (!Array.isArray(emails) || emails.length === 0 || !testLink || !testCode) {
-            throw new Error('Missing required fields: emails (must be a non-empty array), testLink, or testCode');
+            return context.res.json({
+                success: false,
+                message: 'Missing required fields: emails (must be a non-empty array), testLink, or testCode'
+            });
         }
 
         // Initialize Appwrite SDK
         const client = new sdk.Client();
         
         if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_FUNCTION_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
-            throw new Error('Appwrite SDK configuration missing in environment variables');
+            return context.res.json({
+                success: false,
+                message: 'Appwrite SDK configuration missing in environment variables'
+            });
         }
 
         client
@@ -47,7 +50,10 @@ module.exports = async function (req, res) {
 
         // Validate email configuration
         if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
-            throw new Error('Email configuration missing in environment variables');
+            return context.res.json({
+                success: false,
+                message: 'Email configuration missing in environment variables'
+            });
         }
 
         // Configure email transporter
@@ -79,25 +85,39 @@ module.exports = async function (req, res) {
                 `
             };
 
-            return transporter.sendMail(mailOptions);
+            return transporter.sendMail(mailOptions)
+                .catch(error => {
+                    console.error(`Failed to send email to ${email}:`, error);
+                    return null;
+                });
         });
 
         const results = await Promise.all(emailPromises);
 
-        // Return success response
-        return res.json({
-            success: true,
-            message: 'Invitations sent successfully',
-            results: results.map(r => r.messageId)
-        });
+        // Check if any emails were sent successfully
+        const successfulEmails = results.filter(result => result !== null);
+        
+        if (successfulEmails.length > 0) {
+            return context.res.json({
+                success: true,
+                message: 'Invitations sent successfully',
+                results: successfulEmails.map(r => r.messageId)
+            });
+        } else {
+            return context.res.json({
+                success: false,
+                message: 'Failed to send any invitations'
+            });
+        }
 
     } catch (error) {
         console.error('Error in email invitation function:', error);
-
-        // Return error response
-        return res.json({
+        return context.res.json({
             success: false,
             message: error.message || 'Failed to send invitations'
         });
     }
+
+    // If we somehow get here without returning a response, return empty
+    return context.res.empty();
 };
