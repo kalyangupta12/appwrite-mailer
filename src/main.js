@@ -1,35 +1,62 @@
-import { Client, Users } from 'node-appwrite';
+const sdk = require('node-appwrite');
+const nodemailer = require('nodemailer');
 
-// This Appwrite function will be executed every time your function is triggered
-export default async ({ req, res, log, error }) => {
-  // You can use the Appwrite SDK to interact with other services
-  // For this example, we're using the Users service
-  const client = new Client()
-    .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
-    .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-    .setKey(req.headers['x-appwrite-key'] ?? '');
-  const users = new Users(client);
+module.exports = async function (req, res) {
+    // Initialize Appwrite SDK
+    const client = new sdk.Client();
+    client
+        .setEndpoint(process.env.APPWRITE_ENDPOINT)
+        .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
+        .setKey(process.env.APPWRITE_API_KEY);
 
-  try {
-    const response = await users.list();
-    // Log messages and errors to the Appwrite Console
-    // These logs won't be seen by your end users
-    log(`Total users: ${response.total}`);
-  } catch(err) {
-    error("Could not list users: " + err.message);
-  }
+    // Parse the request data
+    const payload = JSON.parse(req.payload);
+    const { emails, testLink, testCode } = payload;
 
-  // The req object contains the request data
-  if (req.path === "/ping") {
-    // Use res object to respond with text(), json(), or binary()
-    // Don't forget to return a response!
-    return res.text("Pong");
-  }
+    // Configure email transporter (using Gmail as an example)
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_APP_PASSWORD // Use App Password for Gmail
+        }
+    });
 
-  return res.json({
-    motto: "Build like a team of hundreds_",
-    learn: "https://appwrite.io/docs",
-    connect: "https://appwrite.io/discord",
-    getInspired: "https://builtwith.appwrite.io",
-  });
+    try {
+        // Send emails to all recipients
+        const emailPromises = emails.map(email => {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Invitation to Participate in Test',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2>You've Been Invited to Participate in a Test</h2>
+                        <p>You can access the test using the following details:</p>
+                        <p><strong>Test Link:</strong> <a href="${testLink}">${testLink}</a></p>
+                        <p><strong>Test Code:</strong> ${testCode}</p>
+                        <p>Please click the link above to begin the test.</p>
+                        <p>If you have any questions, please contact the test administrator.</p>
+                    </div>
+                `
+            };
+
+            return transporter.sendMail(mailOptions);
+        });
+
+        await Promise.all(emailPromises);
+
+        return res.json({
+            success: true,
+            message: `Successfully sent invitations to ${emails.length} recipients`
+        });
+    } catch (error) {
+        console.error('Error sending invitations:', error);
+        
+        return res.json({
+            success: false,
+            message: 'Failed to send invitations',
+            error: error.message
+        }, 500);
+    }
 };
