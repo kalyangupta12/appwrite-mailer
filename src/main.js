@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 
 module.exports = async function (req, res) {
     try {
+        // Verify payload
         if (!req.payload) {
             return res.status(400).json({
                 success: false,
@@ -10,15 +11,17 @@ module.exports = async function (req, res) {
             });
         }
 
-        // Initialize Appwrite SDK
-        const client = new sdk.Client();
-        client
-            .setEndpoint(process.env.APPWRITE_ENDPOINT)
-            .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-            .setKey(process.env.APPWRITE_API_KEY);
-
         // Parse the request data
-        const payload = JSON.parse(req.payload);
+        let payload;
+        try {
+            payload = JSON.parse(req.payload);
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid JSON in payload'
+            });
+        }
+
         const { emails, testLink, testCode } = payload;
 
         // Validate required fields
@@ -29,10 +32,29 @@ module.exports = async function (req, res) {
             });
         }
 
-        // Log the received data (for debugging)
-        console.log('Received data:', { emails, testLink, testCode });
+        // Initialize Appwrite SDK
+        const client = new sdk.Client();
+        client
+            .setEndpoint(process.env.APPWRITE_ENDPOINT || '')
+            .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID || '')
+            .setKey(process.env.APPWRITE_API_KEY || '');
+
+        // Ensure Appwrite credentials are available
+        if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_FUNCTION_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
+            return res.status(500).json({
+                success: false,
+                message: 'Appwrite SDK configuration missing in environment variables'
+            });
+        }
 
         // Configure email transporter (using Gmail as an example)
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
+            return res.status(500).json({
+                success: false,
+                message: 'Email configuration missing in environment variables'
+            });
+        }
+
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -40,6 +62,9 @@ module.exports = async function (req, res) {
                 pass: process.env.EMAIL_APP_PASSWORD // Use App Password for Gmail
             }
         });
+
+        // Log the received data (for debugging)
+        console.log('Sending to emails:', emails);
 
         // Send emails to all recipients
         const emailPromises = emails.map(email => {
@@ -59,7 +84,12 @@ module.exports = async function (req, res) {
                 `
             };
 
-            return transporter.sendMail(mailOptions);
+            // Send email and handle errors
+            return transporter.sendMail(mailOptions)
+                .catch(error => {
+                    console.error(`Failed to send email to ${email}:`, error);
+                    return null; // Continue with other emails
+                });
         });
 
         await Promise.all(emailPromises);
@@ -71,7 +101,6 @@ module.exports = async function (req, res) {
     } catch (error) {
         console.error('Error sending invitations:', error);
 
-        // Ensure the 'status' property is available
         return res.status(500).json({
             success: false,
             message: 'Failed to send invitations',
