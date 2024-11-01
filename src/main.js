@@ -64,7 +64,7 @@ module.exports = async function (req, res) {
 
         await Promise.all(emailPromises);
 
-        return res.status(200).json({
+        return res.json({
             success: true,
             message: 'Invitations sent successfully'
         });
@@ -72,7 +72,7 @@ module.exports = async function (req, res) {
         console.error('Error sending invitations:', error);
 
         // Ensure the 'status' property is available
-        return res.status(500).json({
+        return res.json({
             success: false,
             message: 'Failed to send invitations',
             error: error.message
