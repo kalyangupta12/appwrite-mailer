@@ -1,3 +1,4 @@
+require('dotenv').config();
 const sdk = require('node-appwrite');
 const nodemailer = require('nodemailer');
 
