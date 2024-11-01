@@ -2,21 +2,21 @@ const sdk = require('node-appwrite');
 const nodemailer = require('nodemailer');
 
 module.exports = async function (req, res) {
-    if (!req.payload) {
-        return res.status(400).json({
-            success: false,
-            message: 'No payload provided'
-        });
-    }
-
-    // Initialize Appwrite SDK
-    const client = new sdk.Client();
-    client
-        .setEndpoint(process.env.APPWRITE_ENDPOINT)
-        .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-        .setKey(process.env.APPWRITE_API_KEY);
-
     try {
+        if (!req.payload) {
+            return res.status(400).json({
+                success: false,
+                message: 'No payload provided'
+            });
+        }
+
+        // Initialize Appwrite SDK
+        const client = new sdk.Client();
+        client
+            .setEndpoint(process.env.APPWRITE_ENDPOINT)
+            .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
+            .setKey(process.env.APPWRITE_API_KEY);
+
         // Parse the request data
         const payload = JSON.parse(req.payload);
         const { emails, testLink, testCode } = payload;
@@ -68,10 +68,10 @@ module.exports = async function (req, res) {
             success: true,
             message: 'Invitations sent successfully'
         });
-
     } catch (error) {
         console.error('Error sending invitations:', error);
 
+        // Ensure the 'status' property is available
         return res.status(500).json({
             success: false,
             message: 'Failed to send invitations',
