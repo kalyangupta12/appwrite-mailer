@@ -3,23 +3,31 @@ const sdk = require('node-appwrite');
 const nodemailer = require('nodemailer');
 
 module.exports = async function (req, res) {
-    if (!req.payload) {
-        return res.status(400).json({
-            success: false,
-            message: 'No payload provided'
-        });
-    }
-
-    // Initialize Appwrite SDK
-    const client = new sdk.Client();
-    client
-        .setEndpoint(process.env.APPWRITE_ENDPOINT)
-        .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-        .setKey(process.env.APPWRITE_API_KEY);
-
     try {
+        if (!req || !res) {
+            console.error("Request or response object is undefined.");
+            return;
+        }
+
+        // Verify payload
+        if (!req.payload) {
+            return res.status(400).json({
+                success: false,
+                message: 'No payload provided'
+            });
+        }
+
         // Parse the request data
-        const payload = JSON.parse(req.payload);
+        let payload;
+        try {
+            payload = JSON.parse(req.payload);
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid JSON in payload'
+            });
+        }
+
         const { emails, testLink, testCode } = payload;
 
         // Validate required fields
@@ -30,19 +38,38 @@ module.exports = async function (req, res) {
             });
         }
 
-        // Log the received data (for debugging)
-        console.log('Received data:', { emails, testLink, testCode });
+        // Initialize Appwrite SDK
+        const client = new sdk.Client();
+        client
+            .setEndpoint(process.env.APPWRITE_ENDPOINT || '')
+            .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID || '')
+            .setKey(process.env.APPWRITE_API_KEY || '');
+
+        if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_FUNCTION_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
+            return res.status(500).json({
+                success: false,
+                message: 'Appwrite SDK configuration missing in environment variables'
+            });
+        }
 
         // Configure email transporter (using Gmail as an example)
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
+            return res.status(500).json({
+                success: false,
+                message: 'Email configuration missing in environment variables'
+            });
+        }
+
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
                 user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_APP_PASSWORD // Use App Password for Gmail
+                pass: process.env.EMAIL_APP_PASSWORD
             }
         });
 
-        // Send emails to all recipients
+        console.log('Sending to emails:', emails);
+
         const emailPromises = emails.map(email => {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
@@ -60,23 +87,30 @@ module.exports = async function (req, res) {
                 `
             };
 
-            return transporter.sendMail(mailOptions);
+            return transporter.sendMail(mailOptions)
+                .catch(error => {
+                    console.error(`Failed to send email to ${email}:`, error);
+                    return null;
+                });
         });
 
         await Promise.all(emailPromises);
 
-        return res.json({
+        return res.status(200).json({
             success: true,
             message: 'Invitations sent successfully'
         });
-
     } catch (error) {
         console.error('Error sending invitations:', error);
 
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to send invitations',
-            error: error.message
-        });
+        if (res && res.status) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to send invitations',
+                error: error.message
+            });
+        } else {
+            console.error("Response object or status is unavailable.");
+        }
     }
 };
