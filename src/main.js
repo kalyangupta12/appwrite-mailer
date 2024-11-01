@@ -118,4 +118,8 @@ module.exports = async function (context) {
         context.error('Unexpected error in email invitation function:', error);
         return context.res.json({
             success: false,
-            message: 'Unexpected error occurred
+            message: 'Unexpected error occurred ',
+            error: error.message || 'No error message available'
+        });
+    }
+};
