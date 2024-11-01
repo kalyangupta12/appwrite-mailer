@@ -100,7 +100,7 @@ module.exports = async function (context) {
         const failedEmails = emailResults.filter(result => !result.success);
 
         context.log('Email sending completed:', {
-            successful: successful Emails.length,
+            successful: successfulEmails.length,
             failed: failedEmails.length
         });
 
@@ -118,8 +118,4 @@ module.exports = async function (context) {
         context.error('Unexpected error in email invitation function:', error);
         return context.res.json({
             success: false,
-            message: 'Unexpected error occurred',
-            error: error.message || 'No error message available'
-        });
-    }
-};
+            message: 'Unexpected error occurred
